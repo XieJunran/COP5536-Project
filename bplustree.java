@@ -1,3 +1,4 @@
+import java.io.*;
 import java.util.*;
 
 public class bplustree {
@@ -31,6 +32,7 @@ public class bplustree {
 		root.delete(key);
 	}
 	
+	//Used to display the structure of a B+ tree when debugging
 	public void displayWholeTree() {
 		Queue<Node> curLevel = new LinkedList<>();
 		Queue<Node> nextLevel = new LinkedList<>();
@@ -47,6 +49,7 @@ public class bplustree {
 		}
 	}
 	
+	//Super class for InternalNode and ExternalNode
 	abstract class Node {
 		int keyNum;
 		int[] keys;
@@ -59,6 +62,8 @@ public class bplustree {
 		abstract public void display(Queue<Node> nextLevel);
 	}
 	
+	//Internal node of the B+ tree
+	//The root is considered as an external node when it has no children
 	class InternalNode extends Node {
 		
 		Node[] children;
@@ -71,11 +76,15 @@ public class bplustree {
 			this.parent = null;
 		}
 		
+		//Insert a key-value pair into the internal node
+		//The input key-value pair can't be duplicate
 		public void insert(int key, double value) {
 			int index = getIndex(key);
 			children[index].insert(key, value);
 		}
 		
+		//Used when a node overflows
+		//The node will split into 2 nodes and insert a key into its parent
 		public void insert(int key, Node child) {
 			if(keyNum == MaxKeyNum) {
 				insertFull(key, child);
@@ -84,21 +93,28 @@ public class bplustree {
 			}
 		}
 		
+		//Search for a specified key
+		//It will return "" when the key doesn't exist
 		public String search(int key) {
 			int index = getIndex(key);
 			return children[index].search(key);
 		}
 		
+		//Range search
+		//It will return "" when there is no key in the range
 		public String search(int startKey, int endKey) {
 			int index = getIndex(startKey);
 			return children[index].search(startKey, endKey);
 		}
 		
+		//Delete a key from the internal node
+		//It will do nothing when the key isn't found
 		public void delete(int key) {
 			int index = getIndex(key);
 			children[index].delete(key);
 		}
 		
+		//Display the internal node
 		public void display(Queue<Node> nextLevel) {
 			for(int i = 0; i < keyNum; i++) {
 				if(i != keyNum - 1)
@@ -114,6 +130,9 @@ public class bplustree {
 			}
 		}
 		
+		//When the node is deficient, it will:
+		//	1. borrow a child from its sibling and a key from its parent
+		//	2. merge with its sibling and borrow a key from its parent
 		public void borrowOrMergeFromSibling() {
 			//If root is deficient
 			if(parent == null) {
@@ -190,6 +209,7 @@ public class bplustree {
 			}
 		}
 		
+		//insert into a node with maximum key number
 		private void insertFull(int key, Node child) {
 			int index = getIndex(key);
 			InternalNode sibling = new InternalNode();
@@ -240,6 +260,7 @@ public class bplustree {
 			}
 		}
 		
+		//Insert into a node whose key number is less than the maximum key number
 		private void insertNotFull(int key, Node child) {
 			int index = getIndex(key);
 			System.arraycopy(keys, index, keys, index + 1, keyNum - index);
@@ -260,6 +281,7 @@ public class bplustree {
 		
 	}
 	
+	//Leaf node or external node of the B+ tree
 	class ExternalNode extends Node {
 		
 		double[] values;
@@ -275,6 +297,8 @@ public class bplustree {
 			this.after = null;
 		}
 		
+		//Insert a key-value pair into the external node
+		//The input key-value pair can't be duplicate
 		public void insert(int key, double value) {
 			if(keyNum == MaxKeyNum) {
 				insertFull(key, value);
@@ -283,6 +307,8 @@ public class bplustree {
 			}
 		}
 		
+		//Search for a specified key
+		//It will return "" when the key doesn't exist
 		public String search(int key) {
 			for(int i = 0; i < keyNum; i++) {
 				if(keys[i] == key)
@@ -291,12 +317,13 @@ public class bplustree {
 			return "";
 		}
 		
+		//Range search
+		//It will return "" if there is no key in the given range
 		public String search(int startKey, int endKey) {
 			StringBuilder sb = new StringBuilder();
-			int index = getIndex(startKey);
 			boolean startParse = false;
-			if(index < keyNum) {
-				for(int i = index; i < keyNum; i++) {
+			for(int i = 0; i < keyNum; i++) {
+				if(keys[i] >= startKey) {
 					if(keys[i] <= endKey) {
 						if(!startParse) {
 							sb.append(values[i]);
@@ -330,6 +357,8 @@ public class bplustree {
 			return sb.toString();
 		}
 		
+		//Delete a key-value pair into the external node
+		//It will do nothing when the key isn't found
 		public void delete(int key) {
 			if(keyNum > MinKeyNum || parent == null) {
 				deleteFromFatNode(key);
@@ -338,6 +367,7 @@ public class bplustree {
 			}
 		}
 		
+		//Display the external node
 		public void display(Queue<Node> nextLevel) {
 			for(int i = 0; i < keyNum; i++) {
 				System.out.print(keys[i] + "(" + values[i] + ")");
@@ -349,6 +379,7 @@ public class bplustree {
 			System.out.print("   ");
 		}
 		
+		//Insert a key-value pair into an external node whose key number is less than the maximum key number
 		private void insertNotFull(int key, double value) {
 			int index = getIndex(key);
 			System.arraycopy(keys, index, keys, index + 1, keyNum - index);
@@ -358,6 +389,7 @@ public class bplustree {
 			keyNum++;
 		}
 		
+		//Insert a key-value pair into an external node with the maximum key number
 		private void insertFull(int key, double value) {
 			ExternalNode sibling = new ExternalNode();
 			int index = getIndex(key);
@@ -397,6 +429,7 @@ public class bplustree {
 			}
 		}
 		
+		//Delete a key from an external node whose key number is more than the minimum key number
 		private void deleteFromFatNode(int key) {
 			int index = -1;
 			for(int i = 0; i < keyNum; i++) {
@@ -411,6 +444,7 @@ public class bplustree {
 			keyNum--;
 		}
 		
+		//Delete a key from an external node with the minimum key number
 		private void deleteWithMerge(int key) {
 			int index = -1;
 			for(int i = 0; i < keyNum; i++) {
@@ -490,7 +524,8 @@ public class bplustree {
 		
 	}
 	
-	public static void test() {
+	//Display the tree structure when performing randomly insertion and deletion
+	private static void test1() {
 		bplustree tree = new bplustree(3);
 		Set<Integer> insertSet = new HashSet<>();
 		//int[] array = {33,36,59,2,48,35,43,5,34,64};
@@ -514,8 +549,101 @@ public class bplustree {
 		tree.displayWholeTree();
 	}
 	
+	//Display the tree structure when performing the test case in project discription
+	private static void test2() {
+		bplustree tree = new bplustree(3);
+		tree.insert(21, 0.3534);
+		tree.displayWholeTree();
+		tree.insert(108, 31.907);
+		tree.displayWholeTree();
+		tree.insert(56089, 3.26);
+		tree.displayWholeTree();
+		tree.insert(234, 121.56);
+		tree.displayWholeTree();
+		tree.insert(4325, -109.23);
+		tree.displayWholeTree();
+		tree.delete (108);
+		tree.displayWholeTree();
+		System.out.println("\n" + tree.search(234) + "\n");
+		tree.displayWholeTree();
+		tree.insert(102, 39.56);
+		tree.displayWholeTree();
+		tree.insert(65, -3.95);
+		tree.displayWholeTree();
+		tree.delete (102);
+		tree.displayWholeTree();
+		tree.delete (21);
+		tree.displayWholeTree();
+		tree.insert(106, -3.91);
+		tree.displayWholeTree();
+		tree.insert(23, 3.55);
+		tree.displayWholeTree();
+		System.out.println("\n" + tree.search(23, 99) + "\n");
+		tree.displayWholeTree();
+		tree.insert(32, 0.02);
+		tree.displayWholeTree();
+		tree.insert(220, 3.55);
+		tree.displayWholeTree();
+		tree.delete (234);
+		tree.displayWholeTree();
+		tree.search(65);
+		tree.displayWholeTree();
+	}
+	
+	private static String[] instructions = {"Initialize", "Insert", "Search", "Delete"};
+	
+	private final static String OUTPUT_FILE = "output_file.txt";
+	
+	//Read the input file, create an m way B+ tree
+	//Then perform all the instructions and write the output in output_file.txt
+	public static void initialize(String fileAddress) throws IOException {
+		File input = new File(fileAddress);
+		File output = new File(OUTPUT_FILE);
+		BufferedReader br = new BufferedReader(new FileReader(input));
+		BufferedWriter bw = new BufferedWriter(new FileWriter(output));
+		String line = br.readLine();
+		if(line.substring(0, instructions[0].length()).equals(instructions[0])){
+			int order = Integer.parseInt(line.substring(instructions[0].length() + 1, line.length() - 1));
+			bplustree tree = new bplustree(order);
+			while((line = br.readLine()) != null) {
+				if(line.length() > instructions[1].length() && line.substring(0, instructions[1].length()).equals(instructions[1])) {
+					//Insert(key,value)
+					String[] keyValuePair = line.substring(line.indexOf("(") + 1, line.length() - 1).split(",");
+					int key = Integer.parseInt(keyValuePair[0].trim());
+					double value = Double.parseDouble(keyValuePair[1].trim());
+					tree.insert(key, value);
+				}else if(line.length() > instructions[2].length() && line.substring(0, instructions[2].length()).equals(instructions[2])) {
+					if(line.contains(",")) {
+						//Search(startKey, endKey)
+						String[] keyPair = line.substring(line.indexOf("(") + 1, line.length() - 1).split(",");
+						int startKey = Integer.parseInt(keyPair[0].trim());
+						int endKey = Integer.parseInt(keyPair[1].trim());
+						String outputLine = tree.search(startKey, endKey);
+						bw.write(outputLine + "\r\n");
+					}else {
+						//Search(key)
+						String key = line.substring(line.indexOf("(") + 1, line.length() - 1).trim();
+						String outputLine = tree.search(Integer.parseInt(key));
+						bw.write(outputLine + "\r\n");
+					}
+				}else if(line.length() > instructions[3].length() && line.substring(0, instructions[3].length()).equals(instructions[3])) {
+					//Delete(key)
+					int key = Integer.parseInt(line.substring(line.indexOf("(") + 1, line.length() - 1).trim());
+					tree.delete(key);
+				}
+			}
+		}
+		br.close();
+		bw.flush();
+		bw.close();
+	}
+	
 	public static void main(String[] args) {
-		
+		try {
+			initialize(args[0]);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 }
